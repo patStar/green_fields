@@ -1,0 +1,273 @@
+<html>
+<head>
+<script language="javascript" src="http://code.jquery.com/jquery-2.1.0.min.js"></script>
+</head>
+<body bgcolor="black">
+<script language="javascript">
+  
+  var canvas = $('<canvas></canvas>')
+  var ctx;
+  var field;
+  
+  const NORTH = 'N'
+  const SOUTH = 'S'
+  const WEST = 'W'
+  const EAST = 'E'
+  
+  var clockWiseDirections = [NORTH,EAST,SOUTH,WEST];
+  
+  var adjacentFieldCoordiantesEvenY = [{x:-1,y:-1,direction:WEST},{x:0,y:-1,direction:NORTH},{x:-1,y:+1,direction:SOUTH},{x:0,y:+1,direction:EAST}]
+  var adjacentFieldCoordiantesOddY = [{x:0,y:-1,direction:WEST},{x:+1,y:-1,direction:NORTH},{x:0,y:+1,direction:SOUTH},{x:+1,y:+1,direction:EAST}]
+    
+  var eyeHoverMap = [-3,-2,-1,0,1,2,3,3,2,2,3,4,4,3,2,2,3,3,2,2,3,4,4,3,2,2,3,3,2,2,3,4,4,3,2,1,0,-1,-2]
+  
+  var greenFieldImg = new Image();  
+  var waterFieldImg = new Image();  
+  var selectedFieldImg = new Image();  
+  var selectedFieldFlatImg = new Image();  
+  var selectedFieldWhiteImg = new Image();  
+  
+  var eyesImg = new Image();  
+    
+  var mapShiftX = 100;
+  var mapShiftY = 100;
+  
+  var hexWidth = 64;
+  var hexHeight = 40;
+  
+  var screenWidth = 1500;
+  var screenHeight = 800;
+  
+  var WIDTH = 20;
+  var HEIGHT = 40;
+  
+  var lastClick = {x:null,y:null};
+  var lastMouseOver = {x:null,y:null};
+  var selectedField = null;
+  $(start)
+  
+  function isValidField(x,y) {
+	return x>=0 && x< WIDTH && y>=0 && y< HEIGHT;
+  }
+  
+  function getField(x,y){
+	if(isValidField(x,y)){
+		return field[y][x];
+	}
+	return null;
+  }
+  
+  function getFieldFromEvent(evt){
+	var x = evt.pageX-canvas.offset().left-mapShiftX;
+	var y = evt.pageY-canvas.offset().top-mapShiftY;
+	
+	var Y = y/16;		
+	var X= x/(hexWidth/2);
+	
+	var dX = x-Math.floor(X)*(hexWidth/2);
+	var dY = y-Math.floor(Y)*16;
+		
+	if(Math.floor(Y)%2 == Math.floor(X)%2){			
+		if(dY/16 < (1 - dX/(hexWidth/2))){
+			// oben links
+			positionY = Math.floor(Y)-1
+			if(Math.floor(X)%2==0){				
+				positionX = Math.floor(X)/2-1
+			}else{
+				positionX = (Math.floor(X)-1)/2			
+			}
+		}else{
+			// unten rechts			
+			positionY = Math.floor(Y)
+			if(Math.floor(X)%2==0){				
+				positionX = Math.floor(X)/2
+			}else{
+				positionX = (Math.floor(X)-1)/2			
+			}
+		}
+	}else{
+		if(dY/16 < dX/(hexWidth/2)){
+			// oben rechts
+			positionY = Math.floor(Y)-1
+			if(Math.floor(X)%2==0){				
+				positionX = Math.floor(X)/2			
+			}else{
+				positionX = (Math.floor(X)-1)/2				
+			}
+		}else{
+			// unten links
+			positionY = Math.floor(Y)			
+			if(Math.floor(X)%2==0){				
+				positionX = Math.floor(X)/2-1
+			}else{				
+				positionX = (Math.floor(X)-1)/2				
+			}
+		}
+	}		
+
+	return {x:positionX,y:positionY};
+  }
+  
+  function mouseOver(evt){
+	var coord = getFieldFromEvent(evt)
+	
+	if(field[coord.y] && field[coord.y][coord.x]){
+		lastMouseOver = coord;		
+	}else{
+		lastMouseOver = {x:null,y:null};
+	}
+  }
+
+  function mouseDown(evt){
+	var coord = getFieldFromEvent(evt)
+	var currentField = getField(coord.x,coord.y);
+
+	currentField.type = (currentField.type+1)%3
+	
+	lastClick.x = coord.x;
+	lastClick.y = coord.y;		
+  }
+  
+  function draw(){
+	ctx.fillStyle="black";
+	ctx.fillRect(0,0,screenWidth,screenHeight)
+	
+	for(var y=0; y<field.length; y++){
+		for(var x=0; x<field[y].length; x++){
+			var xCoord = mapShiftX+x*64+(y%2)*32;
+			var yCoord = mapShiftY+y*16;
+			
+			if(field[y][x].type == 1){
+				ctx.drawImage(greenFieldImg,xCoord,yCoord);						
+			}else if(field[y][x].type == 2){
+				ctx.drawImage(waterFieldImg,xCoord,yCoord);		
+			}
+						
+			if(eye.currentField === field[y][x]){
+				ctx.drawImage(eyesImg,3*18,2*18,18,18,xCoord+22,yCoord-12-eyeHoverMap[eye.hoverState],18,18);		
+			}
+			
+			if(field[lastMouseOver.y] && field[lastMouseOver.y][lastMouseOver.x]){
+				if(y == lastMouseOver.y && lastMouseOver.x == x){		
+					if(field[y][x].type == 1){
+						ctx.drawImage(selectedFieldFlatImg,xCoord,yCoord);						
+					}else if(field[y][x].type == 2){
+						ctx.drawImage(selectedFieldImg,xCoord,yCoord);
+					}else{
+						ctx.drawImage(selectedFieldWhiteImg,xCoord,yCoord);					
+					}					
+				}				
+			}
+		}
+	}
+  }
+  
+  const GROUND = 1;
+  
+  var eye = {
+	currentField : null, 
+	lastHover : new Date(),
+	lastMovement : new Date(),
+	hoverState : 0,
+	direction : NORTH,
+	clockwise:1,
+	move : function(){
+		if(new Date() - this.lastMovement < 1000) return;		
+		
+		var x = this.currentField.x;
+		var y = this.currentField.y;
+		var adjacencies = getAdjacentFields(x,y,GROUND);			
+		if(adjacencies[this.direction]){
+			var coord = adjacencies[this.direction]
+			this.currentField = field[y+coord.y][x+coord.x];			
+			this.lastMovement = new Date();			
+		}else{		
+			this.turn(adjacencies);			
+		}		
+	},
+	hover : function(){
+		if(new Date() - this.lastHover > 70){
+			this.lastHover = new Date();
+			this.hoverState = (this.hoverState+1)%eyeHoverMap.length;
+		}	
+	},
+	turn : function(adjacencies){		
+		var turn = clockWiseDirections[(clockWiseDirections.indexOf(this.direction)+this.clockwise+clockWiseDirections.length)%clockWiseDirections.length];
+		if(adjacencies[turn]) {
+			this.direction = turn;
+			return;
+		}
+		
+		var oppositeDirection = clockWiseDirections[(clockWiseDirections.indexOf(this.direction)-this.clockwise+clockWiseDirections.length)%clockWiseDirections.length];
+		if(adjacencies[oppositeDirection]){
+			this.direction = oppositeDirection;
+			this.clockwise = -this.clockwise;
+			return;
+		}
+		
+		this.direction = clockWiseDirections[(clockWiseDirections.indexOf(this.direction)+2*this.clockwise+clockWiseDirections.length)%clockWiseDirections.length];
+	}
+  }
+  
+  function getAdjacentFields(x,y,type) {	
+	var adjacencies = {};
+	
+	var adjacentFieldCoordiantes = adjacentFieldCoordiantesOddY;
+	if(y%2 == 0 ){
+		var adjacentFieldCoordiantes = adjacentFieldCoordiantesEvenY;
+	}
+	for(var i in adjacentFieldCoordiantes){
+		var coord = adjacentFieldCoordiantes[i];
+		try{
+			if(field[y+coord.y][x+coord.x].type === type){
+				adjacencies[coord.direction] = coord;
+			}
+		}catch(e){}
+	}	
+	return adjacencies;
+  }
+  
+  function tick(){
+	
+	eye.hover();						
+	eye.move();
+	
+	draw();
+  }
+  
+  function start(){
+  
+	field = [];
+	for(var y=0; y<HEIGHT; y++){
+		field.push([]);
+		for(var x=0;x<WIDTH; x++){						
+			field[y].push({x:x,y:y,type:0});
+		}				
+	}	
+	
+	field[Math.ceil(HEIGHT/2)][Math.ceil(WIDTH/2)].type = 1
+	eye.currentField = field[Math.ceil(HEIGHT/2)][Math.ceil(WIDTH/2)]
+	
+	greenFieldImg.src="green_field.png";
+	selectedFieldImg.src="selected_field.png";	
+	waterFieldImg.src="water_field.png";
+	selectedFieldFlatImg.src="selected_field_flat.png";	
+	selectedFieldWhiteImg.src="selected_field_white.png";	
+	eyesImg.src="eyes.png";	
+  
+	$('body').append(canvas)
+	canvas.css({'width':screenWidth,'height':screenHeight});
+	canvas[0].width = screenWidth;
+	canvas[0].height = screenHeight;
+	ctx = canvas[0].getContext('2d');
+		
+	canvas.click(mouseDown);
+	canvas.mouseover(mouseOver);
+	canvas.mousemove(mouseOver);
+	
+	window.setInterval(tick,100)
+  }  
+
+</script>
+</body>
+</html>
