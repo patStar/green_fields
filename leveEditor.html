@@ -1,0 +1,293 @@
+<html>
+<head>
+<script language="javascript" src="http://code.jquery.com/jquery-2.1.0.min.js"></script>
+</head>
+<body bgcolor="black">
+<script language="javascript">
+  
+  var canvas = $('<canvas></canvas>')
+  var ctx;
+  var field;
+  
+  const NORTH = 'N'
+  const SOUTH = 'S'
+  const WEST = 'W'
+  const EAST = 'E'
+  
+  const NOTHING = 0
+  const GREEN_GROUND = 1
+  const WATER = 2
+  const CELL_WALL = 3
+      
+  var currentBrush;
+    
+  var greenFieldImg = new Image();  
+  var waterFieldImg = new Image();  
+  var selectedFieldImg = new Image();  
+  var selectedFieldFlatImg = new Image();  
+  var selectedFieldWhiteImg = new Image();  
+  var noFieldImg = new Image();  
+  var cellWallImg = new Image();   
+    
+  var mapShiftX = 100;
+  var mapShiftY = 100;
+    
+  var hexWidth = 64;
+  var hexHeight = 40;
+  
+  var screenWidth; 
+  var screenHeight;
+  
+  var WIDTH;
+  var HEIGHT;
+  
+  var lastClick = {x:null,y:null};
+  var drag = false;
+  var lastMouseOver = {x:null,y:null};
+  var selectedField = null;
+ 
+  $(start)
+  
+  function isValidField(x,y) {
+	return x>=0 && x< WIDTH && y>=0 && y< HEIGHT;
+  }
+  
+  function getField(x,y){
+	if(isValidField(x,y)){
+		return field[y][x];
+	}
+	return null;
+  }
+  
+  function getClickedBrush(evt){
+	var x = evt.pageX-canvas.offset().left;
+	var y = evt.pageY-canvas.offset().top;		
+	
+	for(var i in buttons){		
+		var button = buttons[i];		
+		if(x>=button.x && x<=button.x+button.img.width && y>=button.y && y<=button.y+button.img.height){	
+			console.log(button)
+			return button;
+		}
+	}
+		
+	return null;
+  }
+  
+  function getFieldFromEvent(evt){
+	var x = evt.pageX-canvas.offset().left-mapShiftX;
+	var y = evt.pageY-canvas.offset().top-mapShiftY;
+	
+	var Y = y/16;		
+	var X= x/(hexWidth/2);
+	
+	var dX = x-Math.floor(X)*(hexWidth/2);
+	var dY = y-Math.floor(Y)*16;
+		
+	if(Math.floor(Y)%2 == Math.floor(X)%2){			
+		if(dY/16 < (1 - dX/(hexWidth/2))){
+			// oben links
+			positionY = Math.floor(Y)-1
+			if(Math.floor(X)%2==0){				
+				positionX = Math.floor(X)/2-1
+			}else{
+				positionX = (Math.floor(X)-1)/2			
+			}
+		}else{
+			// unten rechts			
+			positionY = Math.floor(Y)
+			if(Math.floor(X)%2==0){				
+				positionX = Math.floor(X)/2
+			}else{
+				positionX = (Math.floor(X)-1)/2			
+			}
+		}
+	}else{
+		if(dY/16 < dX/(hexWidth/2)){
+			// oben rechts
+			positionY = Math.floor(Y)-1
+			if(Math.floor(X)%2==0){				
+				positionX = Math.floor(X)/2			
+			}else{
+				positionX = (Math.floor(X)-1)/2				
+			}
+		}else{
+			// unten links
+			positionY = Math.floor(Y)			
+			if(Math.floor(X)%2==0){				
+				positionX = Math.floor(X)/2-1
+			}else{				
+				positionX = (Math.floor(X)-1)/2				
+			}
+		}
+	}		
+
+	return {x:positionX,y:positionY};
+  }
+  
+  function mouseOver(evt){ 
+	var coord = getFieldFromEvent(evt)
+	
+	if(field[coord.y] && field[coord.y][coord.x]){
+		lastMouseOver = coord;		
+	}else{
+		lastMouseOver = {x:null,y:null};
+	}
+  }
+
+  function mouseUp(evt){	
+	var clickedBrush = getClickedBrush(evt);
+  	if(clickedBrush != null){
+		currentBrush = clickedBrush;
+	}else{
+		var coord = getFieldFromEvent(evt)
+		var fieldsToPaint = getFieldsAffectedByDrag(lastClick,lastMouseOver)
+		for(var i in fieldsToPaint){
+			if(fieldsToPaint.hasOwnProperty(i)){
+				fieldsToPaint[i].type = currentBrush.type;	
+			}
+		}		
+	}	
+	drag = false;
+  }
+
+  function mouseDown(evt){
+	drag = true;	
+	var coord = getFieldFromEvent(evt)
+	lastClick.x = coord.x;
+	lastClick.y = coord.y;		
+  }
+  
+  var buttons = [
+	{x:1*64+0*16,y:40,img:waterFieldImg,type:WATER},
+	{x:2*64+1*16,y:40,img:greenFieldImg,type:GREEN_GROUND},
+	{x:3*64+2*16,y:40,img:cellWallImg,type:CELL_WALL},
+	{x:4*64+3*16,y:40,img:noFieldImg,type:NOTHING}
+  ]
+  
+  function drawButton(button, ctx){
+	ctx.drawImage(button.img,button.x,button.y);		
+  }
+  
+  function getFieldsAffectedByDrag(start, current){  
+	var affectedFields = {};	
+	if(start.x != null && start.y != null && current.x != null && current.y != null){
+		for(var y = Math.max(0,Math.min(start.y,current.y)); y<= Math.min(Math.max(start.y,current.y),field.length-1); y++){	
+			for(var x = Math.max(0,Math.min(start.x,current.x)); x<= Math.min(Math.max(start.x,current.x),field[0].length-1); x++){
+				affectedFields[x+'_'+y] = field[y][x];
+			}
+		}
+	}
+	return affectedFields;
+  }
+  
+  function draw(){
+	ctx.fillStyle="#111111";
+	ctx.fillRect(0,0,screenWidth,screenHeight)
+	
+	for(var i in buttons){
+		drawButton(buttons[i],ctx)
+	}		
+	
+	var affectedFields = {};
+	if(drag){		
+		affectedFields = getFieldsAffectedByDrag(lastClick,lastMouseOver);				
+	}
+	
+	for(var y=0; y<field.length; y++){
+		for(var x=0; x<field[y].length; x++){
+			var xCoord = mapShiftX+x*64+(y%2)*32;
+			var yCoord = mapShiftY+y*16;										
+			
+			// draw current brush
+			var drawn = false;
+			if(field[lastMouseOver.y] && field[lastMouseOver.y][lastMouseOver.x]){
+				if(y == lastMouseOver.y && lastMouseOver.x == x){		
+					ctx.drawImage(currentBrush.img,xCoord,yCoord);	
+					drawn = true;					
+				}
+			}						
+			
+			if(!drawn){							
+				if(affectedFields[x+'_'+y]){					
+					ctx.drawImage(currentBrush.img,xCoord,yCoord);	
+				}else{
+					if(field[y][x].type == GREEN_GROUND){
+						ctx.drawImage(greenFieldImg,xCoord,yCoord);						
+					}else if(field[y][x].type == WATER){
+						ctx.drawImage(waterFieldImg,xCoord,yCoord);		
+					}else if(field[y][x].type == CELL_WALL){
+						ctx.drawImage(cellWallImg,xCoord,yCoord-16);		
+					}else{
+						ctx.drawImage(noFieldImg,xCoord,yCoord);		
+					}
+				}
+			}
+			
+			if(field[lastMouseOver.y] && field[lastMouseOver.y][lastMouseOver.x]){
+				if(y == lastMouseOver.y && lastMouseOver.x == x){		
+					if(currentBrush.type  == WATER){
+						ctx.drawImage(selectedFieldFlatImg,xCoord,yCoord);						
+					}else if(currentBrush.type == GREEN_GROUND){
+						ctx.drawImage(selectedFieldImg,xCoord,yCoord);
+					}else if(currentBrush.type == CELL_WALL){
+						ctx.drawImage(selectedFieldImg,xCoord,yCoord);
+					}else{
+						ctx.drawImage(selectedFieldWhiteImg,xCoord,yCoord);					
+					}					
+				}				
+			}
+		}
+	}
+  }
+  
+  const GROUND = 1;
+  
+  function tick(){
+	draw();
+  }
+  
+  function start(){
+  
+	screenWidth = window.innerWidth-20;
+	screenHeight = window.innerHeight-20;
+  
+	WIDTH = Math.floor((screenWidth-2*mapShiftX)/hexWidth);
+	HEIGHT = Math.floor((screenHeight-2*mapShiftY)/16);	
+  
+	field = [];
+	for(var y=0; y<HEIGHT; y++){
+		field.push([]);
+		for(var x=0;x<WIDTH; x++){						
+			field[y].push({x:x,y:y,type:NOTHING});
+		}				
+	}	
+	
+	currentBrush =  buttons[0];
+	field[Math.ceil(HEIGHT/2)][Math.ceil(WIDTH/2)].type = GREEN_GROUND
+	
+	greenFieldImg.src="green_field.png";
+	selectedFieldImg.src="selected_field.png";	
+	waterFieldImg.src="water_field.png";
+	selectedFieldFlatImg.src="selected_field_flat.png";	
+	selectedFieldWhiteImg.src="selected_field_white.png";	
+	noFieldImg.src = "no_field.png";
+	cellWallImg.src = "cell_wall.png";
+  
+	$('body').append(canvas)
+	canvas.css({'width':screenWidth,'height':screenHeight});
+	canvas[0].width = screenWidth;
+	canvas[0].height = screenHeight;
+	ctx = canvas[0].getContext('2d');
+		
+	canvas.mousedown(mouseDown);
+	canvas.mouseup(mouseUp);
+	canvas.mouseover(mouseOver);
+	canvas.mousemove(mouseOver);
+	
+	window.setInterval(tick,100)
+  }  
+
+</script>
+</body>
+</html>
