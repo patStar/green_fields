@@ -14,23 +14,40 @@
   const WEST = 'W'
   const EAST = 'E'
   
-  const NOTHING = 0
-  const GREEN_GROUND = 1
-  const WATER = 2
-  const CELL_WALL = 3
+  const NOTHING = 'NOTHING';
+  const GREEN_GROUND = 'GREEN_GROUND';
+  const WATER = 'WATER';
+  const CELL_WALL = 'CELL_WALL';
+  const STREET_CENTER = 'STREET_CENTER';
+  const STREET_NS = 'STREET_NS';
+  const STREET_WE = 'STREET_WE';
+  const SAND = 'SAND';
+  
+  const SUB_URBAN = 'SUB_URBAN';
       
   var currentBrush;
     
-  var greenFieldImg = new Image();  
-  var waterFieldImg = new Image();  
   var selectedFieldImg = new Image();  
   var selectedFieldFlatImg = new Image();  
   var selectedFieldWhiteImg = new Image();  
-  var noFieldImg = new Image();  
-  var cellWallImg = new Image();   
+  
+  var overlayImageMap = {
+	SUB_URBAN :  new Image()
+  }
+  
+  var fieldImageMap = {
+	NOTHING :  new Image(),
+	GREEN_GROUND :  new Image(),
+	WATER :  new Image(),
+	CELL_WALL :  new Image(),
+	STREET_CENTER :  new Image(),
+	STREET_NS :  new Image(),
+	STREET_WE :  new Image(),
+	SAND :  new Image()
+  }; 
     
-  var mapShiftX = 100;
-  var mapShiftY = 100;
+  var mapShiftX;
+  var mapShiftY;
     
   var hexWidth = 64;
   var hexHeight = 40;
@@ -65,8 +82,7 @@
 	
 	for(var i in buttons){		
 		var button = buttons[i];		
-		if(x>=button.x && x<=button.x+button.img.width && y>=button.y && y<=button.y+button.img.height){	
-			console.log(button)
+		if(x>=button.x && x<=button.x+fieldImageMap[button.type].width && y>=button.y && y<=button.y+fieldImageMap[button.type].height){	
 			return button;
 		}
 	}
@@ -76,51 +92,10 @@
   
   function getFieldFromEvent(evt){
 	var x = evt.pageX-canvas.offset().left-mapShiftX;
-	var y = evt.pageY-canvas.offset().top-mapShiftY;
+	var y = evt.pageY-canvas.offset().top-mapShiftY;		
 	
-	var Y = y/16;		
-	var X= x/(hexWidth/2);
-	
-	var dX = x-Math.floor(X)*(hexWidth/2);
-	var dY = y-Math.floor(Y)*16;
-		
-	if(Math.floor(Y)%2 == Math.floor(X)%2){			
-		if(dY/16 < (1 - dX/(hexWidth/2))){
-			// oben links
-			positionY = Math.floor(Y)-1
-			if(Math.floor(X)%2==0){				
-				positionX = Math.floor(X)/2-1
-			}else{
-				positionX = (Math.floor(X)-1)/2			
-			}
-		}else{
-			// unten rechts			
-			positionY = Math.floor(Y)
-			if(Math.floor(X)%2==0){				
-				positionX = Math.floor(X)/2
-			}else{
-				positionX = (Math.floor(X)-1)/2			
-			}
-		}
-	}else{
-		if(dY/16 < dX/(hexWidth/2)){
-			// oben rechts
-			positionY = Math.floor(Y)-1
-			if(Math.floor(X)%2==0){				
-				positionX = Math.floor(X)/2			
-			}else{
-				positionX = (Math.floor(X)-1)/2				
-			}
-		}else{
-			// unten links
-			positionY = Math.floor(Y)			
-			if(Math.floor(X)%2==0){				
-				positionX = Math.floor(X)/2-1
-			}else{				
-				positionX = (Math.floor(X)-1)/2				
-			}
-		}
-	}		
+	positionX = Math.round(1/64*x - 1/32*y)
+	positionY = Math.round(1/64*x + 1/32*y)-1
 
 	return {x:positionX,y:positionY};
   }
@@ -159,14 +134,18 @@
   }
   
   var buttons = [
-	{x:1*64+0*16,y:40,img:waterFieldImg,type:WATER},
-	{x:2*64+1*16,y:40,img:greenFieldImg,type:GREEN_GROUND},
-	{x:3*64+2*16,y:40,img:cellWallImg,type:CELL_WALL},
-	{x:4*64+3*16,y:40,img:noFieldImg,type:NOTHING}
+	{x:1*64+0*16,y:40,type:WATER},
+	{x:2*64+1*16,y:40,type:GREEN_GROUND},
+	{x:3*64+2*16,y:40,type:CELL_WALL},
+	{x:4*64+3*16,y:40,type:NOTHING},
+	{x:5*64+4*16,y:40,type:STREET_WE},
+	{x:6*64+5*16,y:40,type:STREET_NS},
+	{x:7*64+6*16,y:40,type:STREET_CENTER},
+	{x:8*64+7*16,y:40,type:SAND}
   ]
   
   function drawButton(button, ctx){
-	ctx.drawImage(button.img,button.x,button.y);		
+	ctx.drawImage(fieldImageMap[button.type],button.x,button.y);		
   }
   
   function getFieldsAffectedByDrag(start, current){  
@@ -193,47 +172,47 @@
 	if(drag){		
 		affectedFields = getFieldsAffectedByDrag(lastClick,lastMouseOver);				
 	}
-	
+		
 	for(var y=0; y<field.length; y++){
-		for(var x=0; x<field[y].length; x++){
-			var xCoord = mapShiftX+x*64+(y%2)*32;
-			var yCoord = mapShiftY+y*16;										
+		for(var x=field[y].length-1; x>=0; x--){
+			var xCoord = mapShiftX+x*32+y*32;
+			var yCoord = mapShiftY+y*16-x*16;
 			
 			// draw current brush
 			var drawn = false;
 			if(field[lastMouseOver.y] && field[lastMouseOver.y][lastMouseOver.x]){
 				if(y == lastMouseOver.y && lastMouseOver.x == x){		
-					ctx.drawImage(currentBrush.img,xCoord,yCoord);	
+					ctx.drawImage(fieldImageMap[currentBrush.type],xCoord,yCoord);	
 					drawn = true;					
 				}
 			}						
 			
 			if(!drawn){							
 				if(affectedFields[x+'_'+y]){					
-					ctx.drawImage(currentBrush.img,xCoord,yCoord);	
+					ctx.drawImage(fieldImageMap[currentBrush.type],xCoord,yCoord);	
 				}else{
-					if(field[y][x].type == GREEN_GROUND){
-						ctx.drawImage(greenFieldImg,xCoord,yCoord);						
-					}else if(field[y][x].type == WATER){
-						ctx.drawImage(waterFieldImg,xCoord,yCoord);		
-					}else if(field[y][x].type == CELL_WALL){
-						ctx.drawImage(cellWallImg,xCoord,yCoord-16);		
-					}else{
-						ctx.drawImage(noFieldImg,xCoord,yCoord);		
+					if(field[y][x].type == CELL_WALL){
+						ctx.drawImage(fieldImageMap[CELL_WALL],xCoord,yCoord-16);
+					}else{						
+						ctx.drawImage(fieldImageMap[field[y][x].type],xCoord,yCoord);		
 					}
-				}
+				}				
+			}
+			
+			if(field[y][x].overlay){
+				ctx.drawImage(overlayImageMap[field[y][x].overlay],xCoord,yCoord);		
 			}
 			
 			if(field[lastMouseOver.y] && field[lastMouseOver.y][lastMouseOver.x]){
 				if(y == lastMouseOver.y && lastMouseOver.x == x){		
-					if(currentBrush.type  == WATER){
-						ctx.drawImage(selectedFieldFlatImg,xCoord,yCoord);						
+					if(currentBrush.type == NOTHING){
+						ctx.drawImage(selectedFieldWhiteImg,xCoord,yCoord);					
 					}else if(currentBrush.type == GREEN_GROUND){
 						ctx.drawImage(selectedFieldImg,xCoord,yCoord);
 					}else if(currentBrush.type == CELL_WALL){
 						ctx.drawImage(selectedFieldImg,xCoord,yCoord);
 					}else{
-						ctx.drawImage(selectedFieldWhiteImg,xCoord,yCoord);					
+						ctx.drawImage(selectedFieldFlatImg,xCoord,yCoord);						
 					}					
 				}				
 			}
@@ -245,6 +224,31 @@
   
   function tick(){
 	draw();
+	growSuburbans();
+  }
+  
+  function growSuburbans() {
+	if(Math.random() < 0.5){
+		var x = Math.floor(Math.random()* WIDTH);
+		var y = Math.floor(Math.random()* HEIGHT);
+		
+		if(!field[y][x].overlay && (field[y][x].type == SAND || field[y][x].type == GREEN_GROUND) && adjacentFieldIs(x,y,[STREET_CENTER,STREET_NS,STREET_WE])){
+			field[y][x].overlay = SUB_URBAN;
+		}
+	}
+  }
+  
+  var adjacentFields = [{x:1,y:0},{x:0,y:1},{x:-1,y:0},{x:0,y:-1}];
+  
+  function adjacentFieldIs(x,y,types){
+	for(var i in adjacentFields){
+		var coord = adjacentFields[i];
+		try{
+			if(types.indexOf(field[y+coord.y][x+coord.x].type) > -1) return true;
+		}catch(e){
+		}
+	}
+	return false;
   }
   
   function start(){
@@ -252,8 +256,11 @@
 	screenWidth = window.innerWidth-20;
 	screenHeight = window.innerHeight-20;
   
-	WIDTH = Math.floor((screenWidth-2*mapShiftX)/hexWidth);
-	HEIGHT = Math.floor((screenHeight-2*mapShiftY)/16);	
+	WIDTH = 24;
+	HEIGHT = 24;
+	
+	mapShiftX = 100;
+	mapShiftY = 100+(HEIGHT/2)*32;
   
 	field = [];
 	for(var y=0; y<HEIGHT; y++){
@@ -266,13 +273,21 @@
 	currentBrush =  buttons[0];
 	field[Math.ceil(HEIGHT/2)][Math.ceil(WIDTH/2)].type = GREEN_GROUND
 	
-	greenFieldImg.src="green_field.png";
+	fieldImageMap[GREEN_GROUND].src="green_field.png";
+	fieldImageMap[WATER].src="water_field.png";
+	fieldImageMap[NOTHING].src="no_field.png";
+	fieldImageMap[CELL_WALL].src="cell_wall.png";
+	fieldImageMap[STREET_CENTER].src="street_center_field.png";
+	fieldImageMap[STREET_NS].src="street_ns_field.png";
+	fieldImageMap[STREET_WE].src="street_we_field.png";
+	fieldImageMap[SAND].src="sand_field.png";
+	
+	overlayImageMap[SUB_URBAN].src = "suburban_overlay.png";
+	
 	selectedFieldImg.src="selected_field.png";	
-	waterFieldImg.src="water_field.png";
 	selectedFieldFlatImg.src="selected_field_flat.png";	
 	selectedFieldWhiteImg.src="selected_field_white.png";	
-	noFieldImg.src = "no_field.png";
-	cellWallImg.src = "cell_wall.png";
+
   
 	$('body').append(canvas)
 	canvas.css({'width':screenWidth,'height':screenHeight});
