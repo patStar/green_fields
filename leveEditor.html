@@ -35,6 +35,8 @@
   const FORT = 'FORT';
   const SETTLEMENT_01 = 'SETTLEMENT_01';
   const FORREST_01 = 'FORREST_01';
+  
+  const SHIP_01 = 'SHIP_01';
       
   var currentBrush;
     
@@ -52,6 +54,7 @@
 	FORT : new Image(),
 	SETTLEMENT_01 : new Image(),
 	FORREST_01 : new Image(),
+	SHIP_01 : new AnimatedOverlaySprite("ship.png",64,33,3)
   }
   
   var fieldImageMap = {
@@ -218,8 +221,14 @@
 					}
 				}				
 				
-				if(field[y][x].overlay){
-					ctx.drawImage(overlayImageMap[field[y][x].overlay],xCoord,yCoord);		
+				if(field[y][x].overlay){	
+					var image = overlayImageMap[field[y][x].overlay]					
+					if(image instanceof AnimatedOverlaySprite){
+						image.move();
+						image.draw(ctx,xCoord,yCoord);
+					}else{
+						ctx.drawImage(image,xCoord,yCoord);		
+					}
 				}
 			}						
 			
@@ -332,7 +341,8 @@
 	}	
 	
 	currentBrush =  buttons[0];
-	field[Math.ceil(HEIGHT/2)][Math.ceil(WIDTH/2)].type = GREEN_GROUND
+	field[Math.ceil(HEIGHT/2)][Math.ceil(WIDTH/2)].type = WATER
+	field[Math.ceil(HEIGHT/2)][Math.ceil(WIDTH/2)].overlay = SHIP_01;
 	
 	fieldImageMap[GREEN_GROUND].src="green_field.png";
 	fieldImageMap[WATER].src="water_field.png";
@@ -354,6 +364,7 @@
 	overlayImageMap[FORT].src = "green_fort_type_1.png"
 	overlayImageMap[SETTLEMENT_01].src = "settlement_type_1.png"
 	overlayImageMap[FORREST_01].src = "forrest_type_1.png"		
+	overlayImageMap[SHIP_01].src = "ship.png"		
 	
 	selectedFieldImg.src="selected_field.png";	
 	selectedFieldFlatImg.src="selected_field_flat.png";	
@@ -387,6 +398,36 @@
 			field = JSON.parse(mapJSON);
 		}catch(e){
 		}
+	}
+  }
+  
+  function AnimatedOverlaySprite(imgPath,width,height,maxStep){
+	this.img = new Image();
+	this.img.src = imgPath;
+	this.width = width;
+	this.height = height;
+	this.animationPauseIntervall = 250;
+	this.lastMove = new Date();
+	this.step = 0;
+	
+	this.move = function(){	
+		if(new Date() - this.animationPauseIntervall > this.lastMove){		
+			this.lastMove = new Date();		
+			if(this.step == 0){	
+				if(Math.random()<0.5){
+					this.step = 1;					
+				}else{
+					this.step = 2;
+				}
+			}else{
+				this.step = 0;
+			}
+			
+		}
+	}
+	
+	this.draw = function(ctx,x,y){
+		ctx.drawImage(this.img,this.step*this.width,0,this.width,this.height,x,y+3,this.width,this.height);
 	}
   }
 </script>
