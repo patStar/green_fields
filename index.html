@@ -8,9 +8,7 @@
   var canvas = $('<canvas></canvas>')
   var ctx;
   var field;
-  var ship = {};  
   
-  var dayTime = 7
   var maxTime = 24;
   
   var selectedOverlay = false;
@@ -60,7 +58,7 @@
   const WOOD = "WOOD"
   const TOOLS = "TOOLS"
   const SPICES = "SPICES"
-  const FOOD = "FOOD"
+  const FOOD = "FOOD"   
   
   var ressourcesImageMap = {
 	GOLD : new TileSprite("gold.png"),
@@ -70,18 +68,7 @@
 	FOOD : new TileSprite("food.png")
   }
 	
-  var overlayImageMap = {
-	SUB_URBAN_01 :  new TileSprite("suburban_overlay.png"),
-	SUB_URBAN_02 :  new TileSprite("suburban_overlay_m.png"),
-	HARBOUR_S_GREEN : new TileSprite("harbour_green_s_overlay.png"),
-	WE_FARM_GREEN_01 : new TileSprite("green_farm_we_type_1.png"),
-	WE_FARM_GREEN_02 : new TileSprite("green_farm_we_type_2.png"),
-	WE_FARM_GREEN_EMPTY : new TileSprite("green_farm_we_empty.png"),
-	FORT : new TileSprite("green_fort_type_1.png"),
-	SETTLEMENT_01 : new TileSprite("settlement_type_1.png"),
-	FORREST_01 : new TileSprite("forrest_type_1.png"),
-	SHIP_01 : new TileSprite("ship.png",3,64,33)
-  }
+  var overlayImageMap={}
   
   var fieldImageMap = {
 	NOTHING :  new Image(),
@@ -106,12 +93,94 @@
   var WIDTH;
   var HEIGHT;
   
+  const GROUND = 1;
+	
   var lastClick = {x:null,y:null};
   var drag = false;
   var lastMouseOver = {x:null,y:null};
   var selectedField = null;
  
   $(start) 
+  
+  //--------ARRAY-HELPER------------------
+  function has(el,arr){return arr.indexOf(el) > -1;} 
+  function addTo(el,arr){return arr.push(el);}  
+  function removeFrom(el,arr){if(has(el,arr)){arr.splice(arr.indexOf(el),1);}}
+  //--------------------------------------
+  
+  /**
+   * Field Klasse
+   */
+  function Field(x,y,type){	
+	var units = [];
+	var _type = type;
+	var _uncovered = false;
+	this.isUncovered = function(){return _uncovered;}
+	this.uncover = function(){_uncovered = true;}
+	this.explore = function(){
+		this.uncover();
+		for(var i in adjacentFields){
+			var coord = adjacentFields[i];
+			try{
+				field[y+coord.y][x+coord.x].uncover();
+			}catch(e){
+			}
+		}
+	}
+	this.getX = function(){return x;}
+	this.getY = function(){return y;}
+	this.getType = function(){return _type;}
+	this.setType = function(type){_type = type;}
+	this.addUnit = function(unit){addTo(unit,units)}
+	this.removeUnit = function(unit){removeFrom(unit,units)}
+	this.containsUnitType = function(type){
+		for(var i=0; i<units.length; i++){
+			if(units[i].getType() === type){
+				return true;
+			}
+		}
+		return false;
+	}
+	this.hasUnits = function() {return units.length > 0;}
+	this.getUnits = function() {return units;}
+	this.isNextTo = function(field){
+		var dx = Math.abs(x-field.getX());
+		var dy = Math.abs(y-field.getY());
+		return dy<=1 && dx<=1 && dx+dy > 0
+	}
+  }
+  
+  /**
+   * Unit Klasse
+   */
+  function Unit(field,overlay){
+	this.field = field;
+	
+	this.moveTo = function(field){
+		field.addUnit(this)
+		this.field.removeUnit(this);
+		this.field = field	
+		this.field.explore()				
+	}
+	
+	this.getType = function(){
+		return overlay;
+	}
+  }
+    
+  var adjacentFields = [{x:1,y:0},{x:1,y:1},{x:1,y:-1},{x:0,y:1},{x:-1,y:1},{x:-1,y:0},{x:0,y:-1},{x:-1,y:-1}];
+
+  
+  function adjacentFieldIs(x,y,types){
+	for(var i in adjacentFields){
+		var coord = adjacentFields[i];
+		try{
+			if(types.indexOf(field[y+coord.y][x+coord.x].type) > -1) return true;
+		}catch(e){
+		}
+	}
+	return false;
+  }
   
   function drawNumber(ctx,x,y,number){	
 	var num = ""+number;
@@ -176,9 +245,12 @@
 	if(isValidField(coord.x,coord.y)){
 		clickedField = field[coord.y][coord.x]
 	}
-	
-	if(selectedField && selectedField.overlay == SHIP_01 && clickedField && clickedField.type == WATER && !clickedField.overlay && areFieldsAdjacent(selectedField,clickedField)){		
-		moveShipTo(clickedField);		
+		
+	if(selectedField && selectedField.hasUnits() && selectedField.containsUnitType(SHIP_01) && clickedField && clickedField.getType() === WATER && selectedField.isNextTo(clickedField)){		
+		var units = selectedField.getUnits()
+		for(var i=0; i<units.length; i++){
+			units[i].moveTo(clickedField)
+		}
 	}
 	
 	lastClick.x = coord.x;
@@ -190,28 +262,6 @@
 		selectedField = false;
 	}
   } 
-  
-  function moveShipTo(field){
-	field.overlay = SHIP_01
-	ship.field.overlay = null;
-	ship.field = field	
-	uncoverAdjacent(ship.field)
-	addTime(1)
-  }
-  
-  function addTime(time){
-	dayTime = (dayTime+time)%maxTime
-  }
-  
-  function uncoverAdjacent(currentField){
-	for(var i in adjacentFields){
-		var coord = adjacentFields[i];
-		try{
-			field[currentField.y+coord.y][currentField.x+coord.x].uncovered = true;
-		}catch(e){
-		}
-	}
-  }
   
   var buttons = [
 	{x:1*64+0*16,y:40,type:WATER},
@@ -250,27 +300,33 @@
 	ctx.fillRect(0,0,screenWidth,screenHeight)
 		
 	if(selectedField){
-		drawOverlay(ctx,selectedField.overlay,20,20)
+		if(selectedField.hasUnits()){				
+			var units = selectedField.getUnits()
+			for(var unit=0; unit<units.length; unit++){
+				drawOverlay(ctx,units[unit].getType(),20,20)
+			}
+		}
 		if(selectedField.overlay == SETTLEMENT_01){
 			showTradingMenu(ctx,{GOLD:10,WOOD:35,TOOLS:7,SPICES:21,FOOD:5})
 		}
 	}	
 	
-	ctx.fillStyle = "white"
-	ctx.fillText("Uhrzeit: "+dayTime+".oo Uhr",100,20)
-		
+	ctx.fillStyle = "white"	
 	for(var y=0; y<field.length; y++){		
 		for(var x=field[y].length-1; x>=0; x--){
 		
-			if(!field[y][x].uncovered) continue;
+			if(!field[y][x].isUncovered()) continue;
 
 			var xCoord = mapShiftX+x*32+y*32;
 			var yCoord = mapShiftY+y*16-x*16;
 			
-			ctx.drawImage(fieldImageMap[field[y][x].type],xCoord,yCoord);		
+			ctx.drawImage(fieldImageMap[field[y][x].getType()],xCoord,yCoord);		
 
-			if(field[y][x].overlay){					
-				drawOverlay(ctx,field[y][x].overlay,xCoord,yCoord)
+			if(field[y][x].hasUnits()){				
+				var units = field[y][x].getUnits()
+				for(var unit=0; unit<units.length; unit++){
+					drawOverlay(ctx,units[unit].getType(),xCoord,yCoord)
+				}
 			}
 			
 			if(field[lastMouseOver.y] && field[lastMouseOver.y][lastMouseOver.x]){
@@ -290,30 +346,11 @@
 		}
 	}
   }
-  
-  const GROUND = 1;
+ 
   
   function tick(){
 	draw();
-  }
-  
-  var adjacentFields = [{x:1,y:0},{x:1,y:1},{x:1,y:-1},{x:0,y:1},{x:-1,y:1},{x:-1,y:0},{x:0,y:-1},{x:-1,y:-1}];
-  
-  function areFieldsAdjacent(fieldA,fieldB){
-	var delta = Math.abs(fieldA.x-fieldB.x)+Math.abs(fieldA.y-fieldB.y);
-	return delta > 0 && delta <= 2;	
-  }
-  
-  function adjacentFieldIs(x,y,types){
-	for(var i in adjacentFields){
-		var coord = adjacentFields[i];
-		try{
-			if(types.indexOf(field[y+coord.y][x+coord.x].type) > -1) return true;
-		}catch(e){
-		}
-	}
-	return false;
-  }
+  }  
   
   function loadMap(name){  
 	var map = $.ajax({
@@ -321,7 +358,66 @@
 	  dataType: 'json',
 	  async: false,
 	});
-	return map.responseJSON;
+	var jsonMap = map.responseJSON;
+	
+	var result = [];
+	
+	for(var y=0; y<jsonMap.length; y++){
+		result.push([]);
+		for(var x=0; x<jsonMap[y].length; x++){											
+			var newField = new Field(jsonMap[y][x][0],jsonMap[y][x][1],jsonMap[y][x][2]);			
+						
+			// auslagern
+			if(jsonMap[y][x][3]){
+				for(var n=0; n<jsonMap[y][x][3].length; n++){					
+					if(jsonMap[y][x][3][n] === SHIP_01){
+						newField.addUnit(new Unit(newField, SHIP_01));						
+						newField.explore();			
+					}else{						
+						newField.addUnit(new Unit(newField, jsonMap[y][x][3][n]));
+					}
+				}
+			}
+			
+			result[y].push(newField)
+		}
+	}
+	
+	return result;
+  }
+  
+  function loadRessources(name){  
+	var response = $.ajax({
+	  url: name + '.rsc',
+	  dataType: 'json',
+	  async: false,
+	});	
+	
+	var json = response.responseJSON;	
+	
+	var imgMap= json.fieldImages
+	var imgKeys = Object.getOwnPropertyNames(imgMap)
+	for(var i=0; i<imgKeys.length; i++){
+		var uri = imgMap[imgKeys[i]]
+		fieldImageMap[imgKeys[i]] = new Image();
+		fieldImageMap[imgKeys[i]].src = uri;
+	}
+	
+	var overlays = json.overlayImages
+	var overlayKeys = Object.getOwnPropertyNames(overlays)	
+	for(var i=0; i<overlayKeys.length; i++){
+		var overlayData = overlays[overlayKeys[i]]
+		if(overlayData instanceof Array){
+			overlayImageMap[overlayKeys[i]] = new TileSprite(overlayData[0],overlayData[1],overlayData[2],overlayData[3]);
+		}else{
+			overlayImageMap[overlayKeys[i]] = new TileSprite(overlayData);		
+		}
+		
+	}
+		
+	selectedFieldImg.src = json.selectedFieldImg;
+	selectedFieldFlatImg.src= json.selectedFieldFlatImg
+	selectedFieldWhiteImg.src= json.selectedFieldWhiteImg
   }
   
   function start(){
@@ -335,37 +431,8 @@
 	mapShiftX = 100;
 	mapShiftY = 100+(HEIGHT/2)*32;
   
-	field = loadMap("island")
-		
-	fieldImageMap[GREEN_GROUND].src="green_field.png";
-	fieldImageMap[WATER].src="water_field.png";
-	fieldImageMap[NOTHING].src="no_field.png";
-	fieldImageMap[CELL_WALL].src="cell_wall.png";
-	fieldImageMap[STREET_CENTER].src="street_center_field.png";
-	fieldImageMap[STREET_NS].src="street_ns_field.png";
-	fieldImageMap[STREET_WE].src="street_we_field.png";
-	fieldImageMap[SAND].src="sand_field.png";
-	
-	overlayImageMap[SUB_URBAN_01].src = "suburban_overlay.png";
-	overlayImageMap[SUB_URBAN_02].src = "suburban_overlay_m.png";
-	overlayImageMap[HARBOUR_S_GREEN].src = "harbour_green_s_overlay.png";
-	
-	overlayImageMap[WE_FARM_GREEN_01].src = "green_farm_we_type_1.png";
-	overlayImageMap[WE_FARM_GREEN_02].src = "green_farm_we_type_2.png";
-	overlayImageMap[WE_FARM_GREEN_EMPTY].src = "green_farm_we_empty.png";
-	
-	overlayImageMap[FORT].src = "green_fort_type_1.png"
-	overlayImageMap[SETTLEMENT_01].src = "settlement_type_1.png"
-	overlayImageMap[FORREST_01].src = "forrest_type_1.png"		
-	overlayImageMap[SHIP_01].src = "ship.png"		
-	
-	selectedFieldImg.src="selected_field.png";	
-	selectedFieldFlatImg.src="selected_field_flat.png";	
-	selectedFieldWhiteImg.src="selected_field_white.png";	
-
-	ship.field = field[1][1];
-	ship.field.uncovered = true;
-	uncoverAdjacent(ship.field)
+	field = loadMap("island");
+	loadRessources("ressources");			
   
 	$('body').append(canvas)
 	canvas.css({'width':screenWidth,'height':screenHeight});
