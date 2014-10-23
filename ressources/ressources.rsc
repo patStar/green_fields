@@ -1,0 +1,29 @@
+{
+	"fieldImages":
+	{
+		"GREEN_GROUND":"gfx/green_field.png",
+		"WATER":"gfx/water_field.png",
+		"NOTHING":"gfx/no_field.png",
+		"CELL_WALL":"gfx/cell_wall.png",
+		"STREET_CENTER":"gfx/street_center_field.png",
+		"STREET_NS":"gfx/street_ns_field.png",
+		"STREET_WE":"gfx/street_we_field.png",
+		"SAND":"gfx/sand_field.png"
+	},
+	"overlayImages":
+	{
+		"SUB_URBAN_01":"gfx/suburban_overlay.png",
+		"SUB_URBAN_02":"gfx/suburban_overlay_m.png",
+		"HARBOUR_S_GREEN":"gfx/harbour_green_s_overlay.png",
+		"WE_FARM_GREEN_01":"gfx/green_farm_we_type_1.png",
+		"WE_FARM_GREEN_02":"gfx/green_farm_we_type_2.png",
+		"WE_FARM_GREEN_EMPTY":"gfx/green_farm_we_empty.png",
+		"FORT":"gfx/green_fort_type_1.png",
+		"SETTLEMENT_01":"gfx/settlement_type_1.png",
+		"FORREST_01":"gfx/forrest_type_1.png",
+		"SHIP_01":["gfx/ship.png",3,64,33]
+	},
+	"selectedFieldImg":"gfx/selected_field.png",
+	"selectedFieldFlatImg":"gfx/selected_field_flat.png",
+	"selectedFieldWhiteImg":"gfx/selected_field_white.png"
+}

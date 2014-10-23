@@ -10,6 +10,7 @@
   var field;
   
   var maxTime = 24;
+  var ressourcesFolder = "ressources/";
   
   var selectedOverlay = false;
 
@@ -354,7 +355,7 @@
   
   function loadMap(name){  
 	var map = $.ajax({
-	  url: name + '.map',
+	  url: ressourcesFolder + name + '.map',
 	  dataType: 'json',
 	  async: false,
 	});
@@ -388,7 +389,7 @@
   
   function loadRessources(name){  
 	var response = $.ajax({
-	  url: name + '.rsc',
+	  url: ressourcesFolder + name + '.rsc',
 	  dataType: 'json',
 	  async: false,
 	});	
@@ -400,7 +401,7 @@
 	for(var i=0; i<imgKeys.length; i++){
 		var uri = imgMap[imgKeys[i]]
 		fieldImageMap[imgKeys[i]] = new Image();
-		fieldImageMap[imgKeys[i]].src = uri;
+		fieldImageMap[imgKeys[i]].src = ressourcesFolder + uri;
 	}
 	
 	var overlays = json.overlayImages
@@ -408,16 +409,16 @@
 	for(var i=0; i<overlayKeys.length; i++){
 		var overlayData = overlays[overlayKeys[i]]
 		if(overlayData instanceof Array){
-			overlayImageMap[overlayKeys[i]] = new TileSprite(overlayData[0],overlayData[1],overlayData[2],overlayData[3]);
+			overlayImageMap[overlayKeys[i]] = new TileSprite(ressourcesFolder + overlayData[0],overlayData[1],overlayData[2],overlayData[3]);
 		}else{
-			overlayImageMap[overlayKeys[i]] = new TileSprite(overlayData);		
+			overlayImageMap[overlayKeys[i]] = new TileSprite(ressourcesFolder + overlayData);		
 		}
 		
 	}
 		
-	selectedFieldImg.src = json.selectedFieldImg;
-	selectedFieldFlatImg.src= json.selectedFieldFlatImg
-	selectedFieldWhiteImg.src= json.selectedFieldWhiteImg
+	selectedFieldImg.src = ressourcesFolder + json.selectedFieldImg;
+	selectedFieldFlatImg.src= ressourcesFolder + json.selectedFieldFlatImg
+	selectedFieldWhiteImg.src= ressourcesFolder + json.selectedFieldWhiteImg
   }
   
   function start(){
